@@ -17,6 +17,53 @@ custom_cards = ['上忍1','上忍2','上忍3','上忍4','上忍5','上忍6']  # 
 custom_cardNumber = 3 # 默认手牌数量
 
 
+# 获取弃牌堆当前状态
+@app.route('/get_discard_pile', methods=['GET'])
+def get_discard_pile():
+    return jsonify({
+        'discard_pile': discard_pile,
+        'size': len(discard_pile)
+    })
+
+# 从弃牌堆拿牌
+@app.route('/draw_from_discard', methods=['POST'])
+def draw_from_discard():
+    player_name = request.form.get('player_name')
+    card_index = request.form.get('card_index')  # 指定位置（可选）
+    
+    if not discard_pile:
+        return jsonify({'error': '弃牌堆为空'}), 400
+    
+    # 随机或指定拿牌
+    if card_index is None:
+        # 随机拿牌
+        card = random.choice(discard_pile)
+        discard_pile.remove(card)
+    else:
+        # 指定位置拿牌
+        try:
+            card_index = int(card_index)
+            card = discard_pile.pop(card_index)
+        except (IndexError, ValueError):
+            return jsonify({'error': '无效的牌位置'}), 400
+    
+    # 将牌加入玩家手牌
+    players[player_name]['hand'].append(card)
+    
+    # 通知所有玩家更新弃牌堆
+    socketio.emit('discard_update', {
+        'pile_size': len(discard_pile),
+        'action': 'draw',
+        'drawn_card': card,
+        'by_player': player_name
+    })
+    
+    return jsonify({
+        'drawn_card': card,
+        'new_hand': players[player_name]['hand'],
+        'remaining_discard': len(discard_pile)
+    })
+
 
 # 弃牌逻辑
 @app.route('/discard', methods=['POST'])
@@ -109,11 +156,10 @@ def join_game():
                 used_hand.append(hand)
         for hand in player_hands:
             used_hand.append(hand)
-
-        print(used_hand)
+        for card in discard_pile:
+            used_hand.append(card)
         # 计算可用的手牌
         available_hands = [hand for hand in cards if hand not in used_hand]
-        print(available_hands)
         # 如果可用手牌为0
         if not available_hands:
             available_hands.append('空')

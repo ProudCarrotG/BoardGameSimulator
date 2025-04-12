@@ -98,6 +98,15 @@
 
         <div class="section">
             <h3>弃牌堆 <span id="discard-count">(0)</span></h3>
+
+            <!-- 新增拿牌操作区 -->
+            <div style="margin-top: 10px;">
+                <button id="draw-random-btn">随机拿一张</button>
+                <span style="margin: 0 10px;">或</span>
+                <input type="number" id="draw-index-input" placeholder="位置编号" min="0" style="width: 60px;">
+                <button id="draw-specific-btn">指定拿牌</button>
+            </div>
+
             <div id="discard-pile" style="min-height: 50px; border: 1px dashed #ccc; padding: 10px;"></div>
         </div>
         
@@ -195,48 +204,17 @@
                 document.getElementById('name-display').textContent = data.name;
                 document.getElementById('role-display').textContent = data.role;
                 
+                // 在加入游戏成功后调用（替换原来的手牌显示代码）
+                renderHand(data.hand);
                 
-                // 显示手牌（支持连续弃牌版本）
-            function renderHand(hand) {
-                const handDisplay = document.getElementById('hand-display');
-                handDisplay.innerHTML = '';
-                
-                hand.forEach((card, index) => {
-                    const cardElement = document.createElement('div');
-                    cardElement.className = 'card';
-                    cardElement.innerHTML = `
-                        <div class="card-value">${card}</div>
-                        <div class="card-index">#${index+1}</div>
-                    `;
-                    
-                    // 连续弃牌点击逻辑
-                    cardElement.addEventListener('click', async function handleClick() {
-                        try {
-                            const response = await fetch('/discard', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                body: `player_name=${encodeURIComponent(currentPlayer)}&card_index=${index}`
-                            });
-                            
-                            if (!response.ok) throw new Error('出牌失败');
-                            
-                            const result = await response.json();
-                                                        
-                            // 重新渲染手牌（保持其他牌可点击）
-                            renderHand(result.new_hand);
-                            
-                        } catch (error) {
-                            alert(error.message);
-                        }
-                    });
-                    
-                    handDisplay.appendChild(cardElement);
+                // 获取弃牌堆状态
+                fetch('/get_discard_pile')
+                .then(res => res.json())
+                .then(data => {
+                    renderDiscardPile(data.discard_pile);
+                    document.getElementById('discard-count').textContent = `(${data.size})`;
                 });
-            }
 
-            // 在加入游戏成功后调用（替换原来的手牌显示代码）
-            renderHand(data.hand);
-                
             } catch (error) {
                 alert(error.message);
             }
@@ -309,19 +287,138 @@
             }
         });
 
-        
-        // 监听弃牌堆更新
-        socket.on('discard_update', (data) => {
-            document.getElementById('discard-count').textContent = 
-                `(${data.pile_size})`;
+        // 渲染弃牌堆列表（显示每张牌的位置索引）
+        function renderDiscardPile(pile) {
+            const container = document.getElementById('discard-pile');
+            container.innerHTML = '';
             
-            // 显示弃牌信息（可选）
-            const pile = document.getElementById('discard-pile');
-            // if (data.player === currentPlayer) return; // 自己操作已通过动画处理
-            pile.insertAdjacentHTML('afterbegin', 
-                `<div>${data.player} 弃掉了: ${data.discarded}</div>`);
+            if (pile.length === 0) {
+                container.innerHTML = '<div style="color: #999;">弃牌堆为空</div>';
+                return;
+            }
+            
+            pile.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'discarded-card';
+                cardElement.innerHTML = `
+                    <span class="discard-index">[${index}]</span>
+                    ${card}
+                `;
+                container.appendChild(cardElement);
+            });
+        }
+
+        // 显示手牌（支持连续弃牌版本）
+        function renderHand(hand) {
+                    const handDisplay = document.getElementById('hand-display');
+                    handDisplay.innerHTML = '';
+                    
+                    hand.forEach((card, index) => {
+                        const cardElement = document.createElement('div');
+                        cardElement.className = 'card';
+                        cardElement.innerHTML = `
+                            <div class="card-value">${card}</div>
+                            <div class="card-index">#${index+1}</div>
+                        `;
+                        
+                        // 连续弃牌点击逻辑
+                        cardElement.addEventListener('click', async function handleClick() {
+                            try {
+                                const response = await fetch('/discard', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                    body: `player_name=${encodeURIComponent(currentPlayer)}&card_index=${index}`
+                                });
+                                
+                                if (!response.ok) throw new Error('出牌失败');
+                                
+                                const result = await response.json();
+                                                            
+                                // 重新渲染手牌（保持其他牌可点击）
+                                renderHand(result.new_hand);
+                                
+                            } catch (error) {
+                                alert(error.message);
+                            }
+                        });
+                        
+                        handDisplay.appendChild(cardElement);
+                    });
+                }
+
+        // 随机拿牌
+        document.getElementById('draw-random-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/draw_from_discard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `player_name=${encodeURIComponent(currentPlayer)}`
+                });
+                
+                const result = await response.json();
+
+                // // 显示拿牌结果
+                // document.getElementById('draw-result').textContent = 
+                //     `你拿到了: ${result.drawn_card} (剩余 ${result.remaining_discard} 张)`;
+                
+                // 更新手牌和弃牌堆显示
+                renderHand(result.new_hand);
+                
+            } catch (error) {
+                alert(error.message);
+            }
         });
 
+        // 指定位置拿牌
+        document.getElementById('draw-specific-btn').addEventListener('click', async () => {
+            const indexInput = document.getElementById('draw-index-input').value;
+            
+            if (!indexInput) {
+                alert('请输入要拿的牌位置编号');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/draw_from_discard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `player_name=${encodeURIComponent(currentPlayer)}&card_index=${indexInput}`
+                });
+                
+                const result = await response.json();
+                
+                // 显示拿牌结果
+                document.getElementById('draw-result').textContent = 
+                    `你拿到了: ${result.drawn_card} (剩余 ${result.remaining_discard} 张)`;
+                
+                // 更新手牌和弃牌堆显示
+                renderHand(result.new_hand);
+                document.getElementById('draw-index-input').value = '';
+                
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        // 监听弃牌堆更新
+        socket.on('discard_update', (data) => {
+            document.getElementById('discard-count').textContent = `(${data.pile_size})`;
+            
+            fetch('/get_discard_pile')
+                .then(res => res.json())
+                .then(data => {
+                    renderDiscardPile(data.discard_pile);
+                    document.getElementById('discard-count').textContent = `(${data.size})`;
+                });
+
+            // 如果是其他玩家拿牌，显示通知
+            if (data.action === 'draw' && data.by_player !== currentPlayer) {
+                const notice = document.createElement('div');
+                notice.textContent = `${data.by_player} 从弃牌堆拿走了 ${data.drawn_card}`;
+                notice.style.color = '#FF5722';
+                document.getElementById('discard-pile').prepend(notice);
+            }
+        });
     </script>
 </body>
 </html>
