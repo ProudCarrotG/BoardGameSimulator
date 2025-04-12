@@ -66,10 +66,10 @@ def draw_from_discard():
     
     # 通知所有玩家更新弃牌堆
     socketio.emit('discard_update', {
-        'pile_size': len(discard_pile),
         'action': 'draw',
-        'drawn_card': card,
-        'by_player': player_name
+        'player': player_name,
+        'card': card,
+        'pile_size': len(discard_pile),
     })
     
     return jsonify({
@@ -95,8 +95,9 @@ def discard_card():
         
         # 通知所有玩家更新弃牌堆
         socketio.emit('discard_update', {
+            'action': 'discard',
             'player': player_name,
-            'discarded': discarded,
+            'card': discarded,
             'pile_size': len(discard_pile)
         })
         

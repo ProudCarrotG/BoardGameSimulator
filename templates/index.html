@@ -114,6 +114,18 @@
             <h3>你的手牌</h3>
             <div id="hand-display"></div>
         </div>
+
+        <div class="section">
+            <h3>操作日志</h3>
+            <div id="action-log" style="
+                height: 150px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                padding: 10px;
+                background: #f9f9f9;
+                font-size: 14px;
+            "></div>
+        </div>
         
         <div class="section">
             <h3>当前玩家 <span id="player-count">(0)</span></h3>
@@ -308,6 +320,26 @@
             });
         }
 
+        // 显示弃牌信息到日志框
+        function addActionLog(message) {
+            const log = document.getElementById('action-log');
+            const entry = document.createElement('div');
+            entry.style.padding = '5px 0';
+            entry.style.borderBottom = '1px solid #eee';
+            entry.textContent = message;
+            
+            // 添加到日志顶部
+            log.insertBefore(entry, log.firstChild);
+            
+            // 自动滚动到最新日志
+            log.scrollTop = 0;
+            
+            // 限制日志数量（可选）
+            if (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
         // 显示手牌（支持连续弃牌版本）
         function renderHand(hand) {
                     const handDisplay = document.getElementById('hand-display');
@@ -382,7 +414,11 @@
                 });
                 
                 const result = await response.json();
-                                
+                
+                // // 显示拿牌结果
+                // document.getElementById('draw-result').textContent = 
+                //     `你拿到了: ${result.drawn_card} (剩余 ${result.remaining_discard} 张)`;
+                
                 // 更新手牌和弃牌堆显示
                 renderHand(result.new_hand);
                 document.getElementById('draw-index-input').value = '';
@@ -396,6 +432,15 @@
         socket.on('discard_update', (data) => {
             document.getElementById('discard-count').textContent = `(${data.pile_size})`;
             
+            // 记录弃牌日志（区分自己和其他玩家）
+            if(data.action === 'discard'){
+                addActionLog(`${data.player} 弃掉了: ${data.card}`);
+            }
+            if(data.action === 'draw'){
+                addActionLog(`${data.player} 从弃牌堆拿了: ${data.card}`);
+            }
+            
+
             fetch('/get_discard_pile')
                 .then(res => res.json())
                 .then(data => {
