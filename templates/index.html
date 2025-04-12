@@ -330,7 +330,7 @@
             
             // 显示弃牌信息（可选）
             const pile = document.getElementById('discard-pile');
-            if (data.player === currentPlayer) return; // 自己操作已通过动画处理
+            // if (data.player === currentPlayer) return; // 自己操作已通过动画处理
             pile.insertAdjacentHTML('afterbegin', 
                 `<div>${data.player} 弃掉了: ${data.discarded}</div>`);
         });
