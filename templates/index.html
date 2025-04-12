@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>桌游模拟器 - 修复版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <style>
+        /* 弃牌堆样式 */
+    #discard-pile {
+        background: #f9f9f9;
+        border-radius: 4px;
+    }
+    .discarded-card {
+        display: inline-block;
+        margin: 3px;
+        padding: 2px 5px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+    }
+
+    /* 手牌点击效果 */
+    .card {
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .card:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .game-area { display: none; margin-top: 20px; }
+        .card { display: inline-block; width: 80px; height: 120px; margin: 5px; 
+                border: 1px solid #000; text-align: center; line-height: 120px; }
+        .player-list { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .player-item { margin: 5px 0; padding: 5px; border-bottom: 1px solid #ddd; }
+        .player-name { font-weight: bold; }
+        .player-you { color: #0066cc; }
+        .player-time { color: #666; font-size: 0.8em; float: right; }
+        #reset-btn { background: #ff4444; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        #reset-btn:hover { background: #cc0000; }
+        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        #join-game { cursor: pointer; }
+        #setup .section {
+            margin-bottom: 20px;
+        }
+        #roles-input, #cards-input {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px;
+            border: 4px solid #ddd;
+        }
+        #update-config-btn {
+            background: #4CAF50;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #update-config-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>桌游模拟器</h1>
+
+    <div id="setup">
+
+        <div class="section">
+            <h3>游戏配置</h3>
+            <div>
+                <label>身份类型 (用空格分隔):</label>
+                <input type="text" id="roles-input" placeholder="平民 狼人 预言家">
+            </div>
+            <div>
+                <label>手牌类型 (用空格分隔):</label>
+                <input type="text" id="cards-input" placeholder="村民 狼人 预言家">
+            </div>
+            <button id="update-config-btn">更新配置</button>
+        </div>
+
+        <div class="section">
+            <h3>加入游戏</h3>
+            <input type="text" id="player-name" placeholder="输入你的名字">
+            <button id="join-game">进入游戏</button>
+        </div>
+    </div>
+    
+    <div id="game-area" class="game-area">
+        <div class="section">
+            <h2>玩家信息</h2>
+            <p>你的名字: <strong id="name-display"></strong></p>
+            
+            <h3>你的身份</h3>
+            <div id="role-display" style="font-weight: bold; color: #0066cc;"></div>
+        </div>
+
+        <div class="section">
+            <h3>弃牌堆 <span id="discard-count">(0)</span></h3>
+            <div id="discard-pile" style="min-height: 50px; border: 1px dashed #ccc; padding: 10px;"></div>
+        </div>
+        
+        <div class="section">
+            <h3>你的手牌</h3>
+            <div id="hand-display"></div>
+        </div>
+        
+        <div class="section">
+            <h3>当前玩家 <span id="player-count">(0)</span></h3>
+            <div class="player-list" id="player-list-container">
+                <div id="player-list">暂无玩家</div>
+            </div>
+            <button id="reset-btn">重置游戏</button>
+        </div>
+    </div>
+
+    <script>
+        // 加载现有配置
+        async function loadConfig() {
+            const res = await fetch('/get_card_config');
+            const config = await res.json();
+            document.getElementById('roles-input').value = config.roles.join(' ');
+            document.getElementById('cards-input').value = config.cards.join(' ');
+        }
+
+        // 更新配置
+        document.getElementById('update-config-btn').addEventListener('click', async () => {
+            try {
+                const roles = document.getElementById('roles-input').value.split(' ').map(s => s.trim());
+                const cards = document.getElementById('cards-input').value.split(' ').map(s => s.trim());
+                
+                const response = await fetch('/update_card_config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roles, cards })
+                });
+                
+                const result = await response.json();
+                alert(result.status || '配置更新成功');
+                
+            } catch (error) {
+                alert('配置更新失败: ' + error.message);
+            }
+        });
+
+        // 页面加载时获取配置
+        window.addEventListener('load', loadConfig);
+
+
+        const socket = io();
+        let currentPlayer = '';
+        
+        // 初始化Socket.io连接
+        socket.on('connect', () => {
+            console.log('已连接到服务器');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('已断开服务器连接');
+        });
+        
+        // 加入游戏
+        document.getElementById('join-game').addEventListener('click', async () => {
+            const playerName = document.getElementById('player-name').value.trim();
+            
+            if (!playerName) {
+                alert('请输入你的名字');
+                return;
+            }
+
+            // 正式加入游戏
+            try {
+                const response = await fetch('/join', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `player_name=${encodeURIComponent(playerName)}`
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '加入游戏失败');
+                }
+                
+                const data = await response.json();
+                currentPlayer = playerName;
+                
+                // 显示游戏区域
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('game-area').style.display = 'block';
+                
+                // 显示玩家信息
+                document.getElementById('name-display').textContent = data.name;
+                document.getElementById('role-display').textContent = data.role;
+                
+                // // 显示手牌
+                // const handDisplay = document.getElementById('hand-display');
+                // handDisplay.innerHTML = '';
+                // data.hand.forEach(card => {
+                //     const cardElement = document.createElement('div');
+                //     cardElement.className = 'card';
+                //     cardElement.textContent = card;
+                //     handDisplay.appendChild(cardElement);
+                // });
+
+                // 显示手牌（可点击版本）
+                const handDisplay = document.getElementById('hand-display');
+                handDisplay.innerHTML = '';
+                data.hand.forEach((card, index) => {
+                    const cardElement = document.createElement('div');
+                    cardElement.className = 'card';
+                    cardElement.innerHTML = `
+                        <div class="card-value">${card}</div>
+                        <div class="card-index">#${index+1}</div>
+                    `;
+                    
+                    // 添加点击出牌逻辑
+                    cardElement.addEventListener('click', async () => {
+                        try {
+                            const response = await fetch('/discard', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: `player_name=${encodeURIComponent(currentPlayer)}&card_index=${index}`
+                            });
+                            
+                            if (!response.ok) throw new Error('出牌失败');
+                            
+                            const result = await response.json();
+                            
+                            // 更新手牌显示
+                            handDisplay.innerHTML = '';
+                            result.new_hand.forEach((card, i) => {
+                                const newCard = document.createElement('div');
+                                newCard.className = 'card';
+                                newCard.innerHTML = `
+                                    <div class="card-value">${card}</div>
+                                    <div class="card-index">#${i+1}</div>
+                                `;
+                                newCard.addEventListener('click', cardElement.click); // 保留事件
+                                handDisplay.appendChild(newCard);
+                            });
+                                                        
+                        } catch (error) {
+                            alert(error.message);
+                        }
+                    });
+                    
+                    handDisplay.appendChild(cardElement);
+                });
+                
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+        
+        
+        // 重置游戏
+        document.getElementById('reset-btn').addEventListener('click', async () => {
+            if (confirm('确定要重置游戏吗？所有玩家需要重新加入。')) {
+                try {
+                    const response = await fetch('/reset', { method: 'POST' });
+                    if (!response.ok) {
+                        throw new Error('重置失败');
+                    }
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+        });
+        
+        // 更新玩家列表
+        function updatePlayerList(playersData) {
+            const playerList = document.getElementById('player-list');
+            const playerCount = document.getElementById('player-count');
+            
+            playerCount.textContent = `(${playersData.length})`;
+            
+            if (playersData.length === 0) {
+                playerList.innerHTML = '暂无玩家';
+            } else {
+                playerList.innerHTML = '';
+                playersData.forEach(player => {
+                    const playerItem = document.createElement('div');
+                    playerItem.className = 'player-item';
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'player-name';
+                    nameSpan.textContent = player.name;
+                    
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'player-time';
+                    timeSpan.textContent = player.joined_at;
+                    
+                    if (player.name === currentPlayer) {
+                        nameSpan.classList.add('player-you');
+                        nameSpan.textContent += ' (你)';
+                    }
+                    
+                    playerItem.appendChild(nameSpan);
+                    playerItem.appendChild(timeSpan);
+                    playerList.appendChild(playerItem);
+                });
+            }
+        }
+        
+        // 监听玩家列表更新
+        socket.on('players_updated', function(data) {
+            console.log('收到玩家列表更新:', data);
+            updatePlayerList(data.players);
+        });
+        
+        // 监听游戏重置
+        socket.on('game_reset', function() {
+            if (currentPlayer) {
+                alert('游戏已被重置，请重新加入');
+                document.getElementById('setup').style.display = 'block';
+                document.getElementById('game-area').style.display = 'none';
+                document.getElementById('player-name').value = currentPlayer;
+                currentPlayer = '';
+            }
+        });
+
+        
+        // 监听弃牌堆更新
+        socket.on('discard_update', (data) => {
+            document.getElementById('discard-count').textContent = 
+                `(${data.pile_size})`;
+            
+            // 显示弃牌信息（可选）
+            const pile = document.getElementById('discard-pile');
+            if (data.player === currentPlayer) return; // 自己操作已通过动画处理
+            pile.insertAdjacentHTML('afterbegin', 
+                `<div>${data.player} 弃掉了: ${data.discarded}</div>`);
+        });
+
+    </script>
+</body>
+</html>
