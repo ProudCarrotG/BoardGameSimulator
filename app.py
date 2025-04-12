@@ -9,11 +9,14 @@ socketio = SocketIO(app, cors_allowed_origins="*")  # 添加CORS支持
 
 # 全局游戏状态
 players = {}
-roles = ['平民']
-cards = ['村民', '狼人', '预言家']
+roles = ['红1','红2','蓝1','蓝2','X']
+cards = ['上忍1','上忍2','上忍3','上忍4','上忍5','上忍6']
 discard_pile = []  # 弃牌堆
-custom_roles = ['平民']  # 默认身份
-custom_cards = ['村民', '狼人', '预言家']  # 默认手牌
+custom_roles = ['红1','红2','蓝1','蓝2','X']  # 默认身份
+custom_cards = ['上忍1','上忍2','上忍3','上忍4','上忍5','上忍6']  # 默认手牌
+custom_cardNumber = 3 # 默认手牌数量
+
+
 
 # 弃牌逻辑
 @app.route('/discard', methods=['POST'])
@@ -97,22 +100,30 @@ def join_game():
     if not available_roles:
         available_roles.append('观众')
 
-    # 查询已使用的手牌
-    used_hand = []
-    for player in players.values():
-        for hand in player['hand']:
+    player_hands = []
+    for _ in range(custom_cardNumber):
+        # 查询已使用的手牌
+        used_hand = []
+        for player in players.values():
+            for hand in player['hand']:
+                used_hand.append(hand)
+        for hand in player_hands:
             used_hand.append(hand)
-    # 计算可用的手牌
-    available_hands = [hand for hand in cards if hand not in used_hand]
-    # 如果可用手牌为0
-    if not available_hands:
-        available_hands.append('空')
+
+        print(used_hand)
+        # 计算可用的手牌
+        available_hands = [hand for hand in cards if hand not in used_hand]
+        print(available_hands)
+        # 如果可用手牌为0
+        if not available_hands:
+            available_hands.append('空')
+        player_hands.append(random.choice(available_hands))
 
     # 随机选择身份牌和手牌
     if player_name not in players:
         players[player_name] = {
             'role': random.choice(available_roles),
-            'hand': [random.choice(available_hands) for _ in range(3)],
+            'hand': player_hands,
             'joined_at': datetime.now().strftime('%H:%M:%S')
         }
         # 通知所有客户端更新玩家列表
