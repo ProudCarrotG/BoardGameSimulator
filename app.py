@@ -132,6 +132,7 @@ def join_game():
 @app.route('/reset', methods=['POST'])
 def reset_game():
     players.clear()
+    discard_pile.clear()
     socketio.emit('game_reset', {})
     socketio.emit('players_updated', {'players': []})
     return jsonify({'status': '游戏已重置'})

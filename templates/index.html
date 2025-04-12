@@ -195,20 +195,13 @@
                 document.getElementById('name-display').textContent = data.name;
                 document.getElementById('role-display').textContent = data.role;
                 
-                // // 显示手牌
-                // const handDisplay = document.getElementById('hand-display');
-                // handDisplay.innerHTML = '';
-                // data.hand.forEach(card => {
-                //     const cardElement = document.createElement('div');
-                //     cardElement.className = 'card';
-                //     cardElement.textContent = card;
-                //     handDisplay.appendChild(cardElement);
-                // });
-
-                // 显示手牌（可点击版本）
+                
+                // 显示手牌（支持连续弃牌版本）
+            function renderHand(hand) {
                 const handDisplay = document.getElementById('hand-display');
                 handDisplay.innerHTML = '';
-                data.hand.forEach((card, index) => {
+                
+                hand.forEach((card, index) => {
                     const cardElement = document.createElement('div');
                     cardElement.className = 'card';
                     cardElement.innerHTML = `
@@ -216,8 +209,8 @@
                         <div class="card-index">#${index+1}</div>
                     `;
                     
-                    // 添加点击出牌逻辑
-                    cardElement.addEventListener('click', async () => {
+                    // 连续弃牌点击逻辑
+                    cardElement.addEventListener('click', async function handleClick() {
                         try {
                             const response = await fetch('/discard', {
                                 method: 'POST',
@@ -228,20 +221,10 @@
                             if (!response.ok) throw new Error('出牌失败');
                             
                             const result = await response.json();
-                            
-                            // 更新手牌显示
-                            handDisplay.innerHTML = '';
-                            result.new_hand.forEach((card, i) => {
-                                const newCard = document.createElement('div');
-                                newCard.className = 'card';
-                                newCard.innerHTML = `
-                                    <div class="card-value">${card}</div>
-                                    <div class="card-index">#${i+1}</div>
-                                `;
-                                newCard.addEventListener('click', cardElement.click); // 保留事件
-                                handDisplay.appendChild(newCard);
-                            });
                                                         
+                            // 重新渲染手牌（保持其他牌可点击）
+                            renderHand(result.new_hand);
+                            
                         } catch (error) {
                             alert(error.message);
                         }
@@ -249,6 +232,10 @@
                     
                     handDisplay.appendChild(cardElement);
                 });
+            }
+
+            // 在加入游戏成功后调用（替换原来的手牌显示代码）
+            renderHand(data.hand);
                 
             } catch (error) {
                 alert(error.message);
