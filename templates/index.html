@@ -356,10 +356,6 @@
                 });
                 
                 const result = await response.json();
-
-                // // 显示拿牌结果
-                // document.getElementById('draw-result').textContent = 
-                //     `你拿到了: ${result.drawn_card} (剩余 ${result.remaining_discard} 张)`;
                 
                 // 更新手牌和弃牌堆显示
                 renderHand(result.new_hand);
@@ -386,11 +382,7 @@
                 });
                 
                 const result = await response.json();
-                
-                // 显示拿牌结果
-                document.getElementById('draw-result').textContent = 
-                    `你拿到了: ${result.drawn_card} (剩余 ${result.remaining_discard} 张)`;
-                
+                                
                 // 更新手牌和弃牌堆显示
                 renderHand(result.new_hand);
                 document.getElementById('draw-index-input').value = '';
