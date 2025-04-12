@@ -448,13 +448,13 @@
                     document.getElementById('discard-count').textContent = `(${data.size})`;
                 });
 
-            // 如果是其他玩家拿牌，显示通知
-            if (data.action === 'draw' && data.by_player !== currentPlayer) {
-                const notice = document.createElement('div');
-                notice.textContent = `${data.by_player} 从弃牌堆拿走了 ${data.drawn_card}`;
-                notice.style.color = '#FF5722';
-                document.getElementById('discard-pile').prepend(notice);
-            }
+            // // 如果是其他玩家拿牌，显示通知
+            // if (data.action === 'draw' && data.by_player !== currentPlayer) {
+            //     const notice = document.createElement('div');
+            //     notice.textContent = `${data.by_player} 从弃牌堆拿走了 ${data.drawn_card}`;
+            //     notice.style.color = '#FF5722';
+            //     document.getElementById('discard-pile').prepend(notice);
+            // }
         });
     </script>
 </body>
