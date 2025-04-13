@@ -1,54 +1,121 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>桌游模拟器 - 修复版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
     <style>
         /* 弃牌堆样式 */
-    #discard-pile {
-        background: #f9f9f9;
-        border-radius: 4px;
-    }
-    .discarded-card {
-        display: inline-block;
-        margin: 3px;
-        padding: 2px 5px;
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 3px;
-    }
+        #discard-pile {
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
 
-    /* 手牌点击效果 */
-    .card {
-        cursor: pointer;
-        transition: transform 0.2s;
-    }
-    .card:hover {
-        transform: scale(1.05);
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .game-area { display: none; margin-top: 20px; }
-        .card { display: inline-block; width: 80px; height: 120px; margin: 5px; 
-                border: 1px solid #000; text-align: center; line-height: 120px; }
-        .player-list { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
-        .player-item { margin: 5px 0; padding: 5px; border-bottom: 1px solid #ddd; }
-        .player-name { font-weight: bold; }
-        .player-you { color: #0066cc; }
-        .player-time { color: #666; font-size: 0.8em; float: right; }
-        #reset-btn { background: #ff4444; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
-        #reset-btn:hover { background: #cc0000; }
-        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        #join-game { cursor: pointer; }
+        .discarded-card {
+            display: inline-block;
+            margin: 3px;
+            padding: 2px 5px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
+        /* 手牌点击效果 */
+        .card {
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .game-area {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .card {
+            display: inline-block;
+            width: 80px;
+            height: 120px;
+            margin: 5px;
+            border: 1px solid #000;
+            text-align: center;
+            line-height: 120px;
+        }
+
+        .player-list {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .player-item {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .player-name {
+            font-weight: bold;
+        }
+
+        .player-you {
+            color: #0066cc;
+        }
+
+        .player-time {
+            color: #666;
+            font-size: 0.8em;
+            float: right;
+        }
+
+        #reset-btn {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #reset-btn:hover {
+            background: #cc0000;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        #join-game {
+            cursor: pointer;
+        }
+
         #setup .section {
             margin-bottom: 20px;
         }
-        #roles-input, #cards-input {
+
+        #roles-input,
+        #cards-input {
             width: 100%;
             padding: 10px;
             margin: 5px 0 15px;
             border: 4px solid #ddd;
         }
+
         #update-config-btn {
             background: #4CAF50;
             color: white;
@@ -57,11 +124,13 @@
             border-radius: 4px;
             cursor: pointer;
         }
+
         #update-config-btn:hover {
             background: #45a049;
         }
     </style>
 </head>
+
 <body>
     <h1>桌游模拟器</h1>
 
@@ -86,12 +155,12 @@
             <button id="join-game">进入游戏</button>
         </div>
     </div>
-    
+
     <div id="game-area" class="game-area">
         <div class="section">
             <h2>玩家信息</h2>
             <p>你的名字: <strong id="name-display"></strong></p>
-            
+
             <h3>你的身份</h3>
             <div id="role-display" style="font-weight: bold; color: #0066cc;"></div>
         </div>
@@ -109,7 +178,7 @@
 
             <div id="discard-pile" style="min-height: 50px; border: 1px dashed #ccc; padding: 10px;"></div>
         </div>
-        
+
         <div class="section">
             <h3>你的手牌</h3>
             <div id="hand-display"></div>
@@ -126,7 +195,7 @@
                 font-size: 14px;
             "></div>
         </div>
-        
+
         <div class="section">
             <h3>当前玩家 <span id="player-count">(0)</span></h3>
             <div class="player-list" id="player-list-container">
@@ -150,16 +219,16 @@
             try {
                 const roles = document.getElementById('roles-input').value.split(' ').map(s => s.trim());
                 const cards = document.getElementById('cards-input').value.split(' ').map(s => s.trim());
-                
+
                 const response = await fetch('/update_card_config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ roles, cards })
                 });
-                
+
                 const result = await response.json();
                 alert(result.status || '配置更新成功');
-                
+
             } catch (error) {
                 alert('配置更新失败: ' + error.message);
             }
@@ -171,20 +240,20 @@
 
         const socket = io();
         let currentPlayer = '';
-        
+
         // 初始化Socket.io连接
         socket.on('connect', () => {
             console.log('已连接到服务器');
         });
-        
+
         socket.on('disconnect', () => {
             console.log('已断开服务器连接');
         });
-        
+
         // 加入游戏
         document.getElementById('join-game').addEventListener('click', async () => {
             const playerName = document.getElementById('player-name').value.trim();
-            
+
             if (!playerName) {
                 alert('请输入你的名字');
                 return;
@@ -199,40 +268,40 @@
                     },
                     body: `player_name=${encodeURIComponent(playerName)}`
                 });
-                
+
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || '加入游戏失败');
                 }
-                
+
                 const data = await response.json();
                 currentPlayer = playerName;
-                
+
                 // 显示游戏区域
                 document.getElementById('setup').style.display = 'none';
                 document.getElementById('game-area').style.display = 'block';
-                
+
                 // 显示玩家信息
                 document.getElementById('name-display').textContent = data.name;
                 document.getElementById('role-display').textContent = data.role;
-                
+
                 // 在加入游戏成功后调用（替换原来的手牌显示代码）
                 renderHand(data.hand);
-                
+
                 // 获取弃牌堆状态
                 fetch('/get_discard_pile')
-                .then(res => res.json())
-                .then(data => {
-                    renderDiscardPile(data.discard_pile);
-                    document.getElementById('discard-count').textContent = `(${data.size})`;
-                });
+                    .then(res => res.json())
+                    .then(data => {
+                        renderDiscardPile(data.discard_pile);
+                        document.getElementById('discard-count').textContent = `(${data.size})`;
+                    });
 
             } catch (error) {
                 alert(error.message);
             }
         });
-        
-        
+
+
         // 重置游戏
         document.getElementById('reset-btn').addEventListener('click', async () => {
             if (confirm('确定要重置游戏吗？所有玩家需要重新加入。')) {
@@ -246,14 +315,14 @@
                 }
             }
         });
-        
+
         // 更新玩家列表
         function updatePlayerList(playersData) {
             const playerList = document.getElementById('player-list');
             const playerCount = document.getElementById('player-count');
-            
+
             playerCount.textContent = `(${playersData.length})`;
-            
+
             if (playersData.length === 0) {
                 playerList.innerHTML = '暂无玩家';
             } else {
@@ -261,35 +330,35 @@
                 playersData.forEach(player => {
                     const playerItem = document.createElement('div');
                     playerItem.className = 'player-item';
-                    
+
                     const nameSpan = document.createElement('span');
                     nameSpan.className = 'player-name';
                     nameSpan.textContent = player.name;
-                    
+
                     const timeSpan = document.createElement('span');
                     timeSpan.className = 'player-time';
                     timeSpan.textContent = player.joined_at;
-                    
+
                     if (player.name === currentPlayer) {
                         nameSpan.classList.add('player-you');
                         nameSpan.textContent += ' (你)';
                     }
-                    
+
                     playerItem.appendChild(nameSpan);
                     playerItem.appendChild(timeSpan);
                     playerList.appendChild(playerItem);
                 });
             }
         }
-        
+
         // 监听玩家列表更新
-        socket.on('players_updated', function(data) {
+        socket.on('players_updated', function (data) {
             console.log('收到玩家列表更新:', data);
             updatePlayerList(data.players);
         });
-        
+
         // 监听游戏重置
-        socket.on('game_reset', function() {
+        socket.on('game_reset', function () {
             if (currentPlayer) {
                 alert('游戏已被重置，请重新加入');
                 document.getElementById('setup').style.display = 'block';
@@ -303,12 +372,12 @@
         function renderDiscardPile(pile) {
             const container = document.getElementById('discard-pile');
             container.innerHTML = '';
-            
+
             if (pile.length === 0) {
                 container.innerHTML = '<div style="color: #999;">弃牌堆为空</div>';
                 return;
             }
-            
+
             pile.forEach((card, index) => {
                 const cardElement = document.createElement('div');
                 cardElement.className = 'discarded-card';
@@ -327,13 +396,13 @@
             entry.style.padding = '5px 0';
             entry.style.borderBottom = '1px solid #eee';
             entry.textContent = message;
-            
+
             // 添加到日志顶部
             log.insertBefore(entry, log.firstChild);
-            
+
             // 自动滚动到最新日志
             log.scrollTop = 0;
-            
+
             // 限制日志数量（可选）
             if (log.children.length > 20) {
                 log.removeChild(log.lastChild);
@@ -342,41 +411,41 @@
 
         // 显示手牌（支持连续弃牌版本）
         function renderHand(hand) {
-                    const handDisplay = document.getElementById('hand-display');
-                    handDisplay.innerHTML = '';
-                    
-                    hand.forEach((card, index) => {
-                        const cardElement = document.createElement('div');
-                        cardElement.className = 'card';
-                        cardElement.innerHTML = `
+            const handDisplay = document.getElementById('hand-display');
+            handDisplay.innerHTML = '';
+
+            hand.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.innerHTML = `
                             <div class="card-value">${card}</div>
-                            <div class="card-index">#${index+1}</div>
+                            <div class="card-index">#${index + 1}</div>
                         `;
-                        
-                        // 连续弃牌点击逻辑
-                        cardElement.addEventListener('click', async function handleClick() {
-                            try {
-                                const response = await fetch('/discard', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                                    body: `player_name=${encodeURIComponent(currentPlayer)}&card_index=${index}`
-                                });
-                                
-                                if (!response.ok) throw new Error('出牌失败');
-                                
-                                const result = await response.json();
-                                                            
-                                // 重新渲染手牌（保持其他牌可点击）
-                                renderHand(result.new_hand);
-                                
-                            } catch (error) {
-                                alert(error.message);
-                            }
+
+                // 连续弃牌点击逻辑
+                cardElement.addEventListener('click', async function handleClick() {
+                    try {
+                        const response = await fetch('/discard', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: `player_name=${encodeURIComponent(currentPlayer)}&card_index=${index}`
                         });
-                        
-                        handDisplay.appendChild(cardElement);
-                    });
-                }
+
+                        if (!response.ok) throw new Error('出牌失败');
+
+                        const result = await response.json();
+
+                        // 重新渲染手牌（保持其他牌可点击）
+                        renderHand(result.new_hand);
+
+                    } catch (error) {
+                        alert(error.message);
+                    }
+                });
+
+                handDisplay.appendChild(cardElement);
+            });
+        }
 
         // 随机拿牌
         document.getElementById('draw-random-btn').addEventListener('click', async () => {
@@ -386,12 +455,12 @@
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `player_name=${encodeURIComponent(currentPlayer)}`
                 });
-                
+
                 const result = await response.json();
-                
+
                 // 更新手牌和弃牌堆显示
                 renderHand(result.new_hand);
-                
+
             } catch (error) {
                 alert(error.message);
             }
@@ -400,62 +469,74 @@
         // 指定位置拿牌
         document.getElementById('draw-specific-btn').addEventListener('click', async () => {
             const indexInput = document.getElementById('draw-index-input').value;
-            
+
             if (!indexInput) {
                 alert('请输入要拿的牌位置编号');
                 return;
             }
-            
+
             try {
                 const response = await fetch('/draw_from_discard', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `player_name=${encodeURIComponent(currentPlayer)}&card_index=${indexInput}`
                 });
-                
+
                 const result = await response.json();
-                
+
                 // // 显示拿牌结果
                 // document.getElementById('draw-result').textContent = 
                 //     `你拿到了: ${result.drawn_card} (剩余 ${result.remaining_discard} 张)`;
-                
+
                 // 更新手牌和弃牌堆显示
                 renderHand(result.new_hand);
                 document.getElementById('draw-index-input').value = '';
-                
+
             } catch (error) {
                 alert(error.message);
             }
         });
 
-        // 监听弃牌堆更新
-        socket.on('discard_update', (data) => {
-            document.getElementById('discard-count').textContent = `(${data.pile_size})`;
-            
-            // 记录弃牌日志（区分自己和其他玩家）
-            if(data.action === 'discard'){
-                addActionLog(`${data.player} 弃掉了: ${data.card}`);
-            }
-            if(data.action === 'draw'){
-                addActionLog(`${data.player} 从弃牌堆拿了: ${data.card}`);
-            }
-            
-
+        // 更新弃牌堆
+        function updateDiscardPile() {
             fetch('/get_discard_pile')
                 .then(res => res.json())
                 .then(data => {
                     renderDiscardPile(data.discard_pile);
                     document.getElementById('discard-count').textContent = `(${data.size})`;
                 });
+        }
 
-            // // 如果是其他玩家拿牌，显示通知
-            // if (data.action === 'draw' && data.by_player !== currentPlayer) {
-            //     const notice = document.createElement('div');
-            //     notice.textContent = `${data.by_player} 从弃牌堆拿走了 ${data.drawn_card}`;
-            //     notice.style.color = '#FF5722';
-            //     document.getElementById('discard-pile').prepend(notice);
-            // }
+
+        // 监听游戏更新
+        socket.on('game_update', (data) => {
+            // 刷新手牌
+
+            // 刷新弃牌堆
+            updateDiscardPile();
         });
+
+        // // 监听弃牌堆更新
+        // socket.on('discard_update', (data) => {
+        //     document.getElementById('discard-count').textContent = `(${data.pile_size})`;
+
+        //     // 记录弃牌日志（区分自己和其他玩家）
+        //     if (data.action === 'discard') {
+        //         addActionLog(`${data.player} 弃掉了: ${data.card}`);
+        //     }
+        //     if (data.action === 'draw') {
+        //         addActionLog(`${data.player} 从弃牌堆拿了: ${data.card}`);
+        //     }
+
+
+        //     fetch('/get_discard_pile')
+        //         .then(res => res.json())
+        //         .then(data => {
+        //             renderDiscardPile(data.discard_pile);
+        //             document.getElementById('discard-count').textContent = `(${data.size})`;
+        //         });
+        // });
     </script>
 </body>
+
 </html>
